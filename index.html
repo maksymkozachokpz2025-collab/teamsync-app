@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="uk" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#17191D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TeamSync" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>TeamSync</title>
+
+  <!-- Вбудований Web App Manifest для встановлення на телефон як додатка -->
+  <link rel="manifest" href='data:application/manifest+json,{"name":"TeamSync","short_name":"TeamSync","start_url":".","display":"standalone","background_color":"#17191D","theme_color":"#17191D"}' />
+
+  <!-- Шрифт Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            neutral900: '#17191D',
+            secondary800: '#23262C',
+            neutral100: '#F5F7FA',
+            neutral400: '#A3AAB5',
+            disabledBg: '#343840',
+            primary500: '#29B6FF',
+            primaryHover: '#00A3E0',
+            primaryPressed: '#008EC2',
+            success: '#2EC4B6',
+            error: '#FF4B4B',
+            warning: '#FFC107',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      background-color: #17191D;
+      color: #F5F7FA;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
+    /* Типографічна шкала з Розділу 2.2 */
+    .text-h1 { font-size: 32px; line-height: 40px; font-weight: 700; }
+    .text-h2 { font-size: 24px; line-height: 32px; font-weight: 700; }
+    .text-h3 { font-size: 20px; line-height: 28px; font-weight: 600; }
+    .text-h4 { font-size: 18px; line-height: 24px; font-weight: 500; }
+    .text-body { font-size: 16px; line-height: 24px; font-weight: 400; }
+    .text-body-s { font-size: 14px; line-height: 20px; font-weight: 400; }
+    .text-caption { font-size: 12px; line-height: 16px; font-weight: 400; }
+
+    /* Нативні мобільні переходи між екранами (280мс) */
+    .screen {
+      position: absolute;
+      inset: 0;
+      transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease-out;
+      will-change: transform, opacity;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: env(safe-area-inset-top, 16px);
+    }
+    .screen::-webkit-scrollbar { display: none; }
+    .screen-hidden-right {
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .screen-hidden-left {
+      transform: translateX(-28%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .screen-active {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Стани головної кнопки (Default, Hover, Pressed, Focus) */
+    .btn-primary {
+      background-color: #29B6FF;
+      color: #17191D;
+      font-weight: 600;
+      transition: background-color 150ms ease, transform 100ms ease, box-shadow 150ms ease;
+    }
+    .btn-primary:hover { background-color: #00A3E0; }
+    .btn-primary:active {
+      background-color: #008EC2;
+      transform: scale(0.97);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 0 1.5px #29B6FF;
+    }
+    .btn-primary:focus-visible {
+      outline: 2px solid #F5F7FA;
+      outline-offset: 2px;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      50% { transform: translateX(6px); }
+      75% { transform: translateX(-4px); }
+    }
+    .animate-shake { animation: shake 280ms ease-in-out; }
+  </style>
+</head>
+<body class="flex justify-center bg-[#0E1013]">
+
+  <!-- На телефоні займає 100% екрана, на широкому моніторі тримає мобільні пропорції max-w-[430px] -->
+  <main class="relative w-full max-w-[430px] h-[100dvh] bg-neutral900 flex flex-col overflow-hidden shadow-2xl">
+
+    <!-- Спливаюче Toast-сповіщення -->
+    <div id="toast" class="absolute top-4 left-4 right-4 z-50 bg-secondary800 border border-[#343840] rounded-2xl px-4 py-3.5 shadow-xl flex items-center justify-between transform -translate-y-24 opacity-0 transition-all duration-250 pointer-events-none">
+      <div class="flex items-center gap-2.5">
+        <span id="toast-dot" class="w-2.5 h-2.5 rounded-full bg-success shrink-0"></span>
+        <span id="toast-text" class="text-body-s font-medium text-neutral100">Дію виконано</span>
+      </div>
+      <button id="toast-action" onclick="undoAttendance()" class="hidden text-caption font-semibold text-primary500 active:opacity-70 ml-3 shrink-0">Скасувати</button>
+    </div>
+
+    <!-- КОНТЕЙНЕР ЕКРАНІВ -->
+    <div class="relative flex-1 overflow-hidden">
+
+      <!-- 1. ЕКРАН АВТОРИЗАЦІЇ (LOGIN) -->
+      <section id="screen-login" class="screen screen-active px-4 pt-8 pb-8 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-2xl bg-primary500 flex items-center justify-center text-neutral900 mb-5 shadow-lg shadow-primary500/20">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12h4l3-8 4 16 3-8h4"/>
+            </svg>
+          </div>
+          <h1 class="text-h1 text-neutral100 tracking-tight">TeamSync</h1>
+          <p class="text-body-s text-neutral400 mt-1">Твоя команда. Твій ритм.</p>
+
+          <h2 class="text-h3 text-neutral100 mt-10 mb-4">Раді бачити знову</h2>
+
+          <div class="mb-4">
+            <label class="block text-caption text-neutral400 mb-1.5">Електронна пошта</label>
+            <div id="login-email-box" class="flex items-center gap-3 bg-secondary800 border border-[#343840] focus-within:border-primary500 rounded-xl px-3.5 py-3.5 transition">
+              <svg class="w-5 h-5 text-neutral400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <input id="login-email" type="email" value="oleksandr@hc-khm.ua" placeholder="Електронна пошта" class="w-full bg-transparent text-body text-neutral100 placeholder-neutral400 focus:outline-none" />
+            </div>
+            <p id="login-error" class="hidden text-caption text-error mt-1.5">⚠ Введіть коректну електронну пошту</p>
+          </div>
+
+          <div class="mb-2">
+            <label class="block text-caption text-neutral400 mb-1.5">Пароль</label>
+            <div class="flex items-center gap-3 bg-secondary800 border border-[#343840] focus-within:border-primary500 rounded-xl px-3.5 py-3.5 transition">
+              <svg class="w-5 h-5 text-neutral400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <rect x="4" y="11" width="16" height="9" rx="2"/>
+                <path stroke-linecap="round" d="M8 11V7a4 4 0 018 0v4"/>
+              </svg>
+              <input id="login-password" type="password" value="handball2026" placeholder="Пароль" class="w-full bg-transparent text-body text-neutral100 placeholder-neutral400 focus:outline-none" />
+            </div>
+          </div>
+
+          <div class="flex justify-end mb-6">
+            <button onclick="showToast('Посилання для відновлення надіслано', 'info')" class="text-caption text-neutral400 active:text-primary500 py-1">Забули пароль?</button>
+          </div>
+
+          <button id="btn-login" onclick="handleLogin()" class="btn-primary w-full py-4 rounded-xl text-body flex items-center justify-center gap-2">
+            <span id="btn-login-text">Увійти</span>
+          </button>
+        </div>
+
+        <div class="pt-4 border-t border-[#23262C]">
+          <p class="text-caption font-semibold text-primary500 tracking-wider uppercase">Разом до перемоги</p>
+          <p class="text-caption text-neutral400 mt-0.5">Тренування, команда та всі плани — поруч.</p>
+        </div>
+      </section>
+
+      <!-- 2. ЕКРАН РОЗКЛАДУ (SCHEDULE) -->
+      <section id="screen-schedule" class="screen screen-hidden-right px-4 pt-5 pb-24">
+        <div class="flex items-center justify-between mb-4">
+          <h1 class="text-h2 text-neutral100">Розклад</h1>
+          <button onclick="showToast('Нових сповіщень від тренера немає', 'info')" class="w-10 h-10 rounded-xl bg-secondary800 flex items-center justify-center text-neutral100 active:scale-95 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-5-5.9V4a1 1 0 10-2 0v1.1A6 6 0 006 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0h6z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between text-caption text-neutral400 mb-2.5">
+          <span class="font-medium text-neutral100">Жовтень 2026</span>
+          <span>Цей тиждень</span>
+        </div>
+
+        <!-- Чіпси дат -->
+        <div class="grid grid-cols-7 gap-1.5 mb-5" id="date-chips">
+          <button onclick="selectDay(19, 'Понеділок, 19 жовтня', true)" data-day="19" class="day-chip py-2.5 rounded-xl bg-primary500 text-neutral900 flex flex-col items-center justify-center font-semibold transition">
+            <span class="text-[11px] opacity-80">Пн</span>
+            <span class="text-body-s font-bold mt-0.5">19</span>
+          </button>
+          <button onclick="selectDay(20, 'Вівторок, 20 жовтня', false)" data-day="20" class="day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition">
+            <span class="text-[11px] text-neutral400">Вт</span>
+            <span class="text-body-s font-semibold mt-0.5">20</span>
+          </button>
+          <button onclick="selectDay(21, 'Середа, 21 жовтня', true)" data-day="21" class="day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition">
+            <span class="text-[11px] text-neutral400">Ср</span>
+            <span class="text-body-s font-semibold mt-0.5">21</span>
+          </button>
+          <button onclick="selectDay(22, 'Четвер, 22 жовтня', false)" data-day="22" class="day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition">
+            <span class="text-[11px] text-neutral400">Чт</span>
+            <span class="text-body-s font-semibold mt-0.5">22</span>
+          </button>
+          <button onclick="selectDay(23, 'Пʼятниця, 23 жовтня', true)" data-day="23" class="day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition">
+            <span class="text-[11px] text-neutral400">Пт</span>
+            <span class="text-body-s font-semibold mt-0.5">23</span>
+          </button>
+          <button onclick="selectDay(24, 'Субота, 24 жовтня', false)" data-day="24" class="day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition">
+            <span class="text-[11px] text-neutral400">Сб</span>
+            <span class="text-body-s font-semibold mt-0.5">24</span>
+          </button>
+          <button onclick="selectDay(25, 'Неділя, 25 жовтня', false)" data-day="25" class="day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition">
+            <span class="text-[11px] text-neutral400">Нд</span>
+            <span class="text-body-s font-semibold mt-0.5">25</span>
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+          <h2 id="schedule-day-title" class="text-body-s font-semibold text-neutral100">Понеділок, 19 жовтня</h2>
+          <span id="schedule-events-count" class="text-caption text-neutral400">2 події</span>
+        </div>
+
+        <!-- Картки тренувань -->
+        <div id="schedule-cards" class="space-y-3.5">
+          <div onclick="openTrainingDetails('Силова підготовка', '19:00 - 20:30', 'Зал силової підготовки')" class="bg-secondary800 rounded-2xl p-4 active:scale-[0.99] transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-h3 text-neutral100">19:00</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-neutral400">Командне тренування</span>
+            </div>
+            <h3 class="text-body font-semibold text-neutral100 mb-3">Силова підготовка</h3>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5 text-caption text-neutral400">
+                <svg class="w-4 h-4 text-primary500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6-5.3-6-10a6 6 0 1112 0c0 4.7-6 10-6 10z"/>
+                  <circle cx="12" cy="11" r="2"/>
+                </svg>
+                <span>Спорткомплекс</span>
+              </div>
+              <button id="card-1-btn" onclick="event.stopPropagation(); openTrainingDetails('Силова підготовка', '19:00 - 20:30', 'Зал силової підготовки')" class="btn-primary px-4 py-2 rounded-xl text-caption font-semibold flex items-center gap-1">
+                <span>✓ Буду</span>
+              </button>
+            </div>
+          </div>
+
+          <div onclick="openTrainingDetails('Техніка та тактика', '20:30 - 22:00', 'Ігровий зал №1')" class="bg-secondary800 rounded-2xl p-4 active:scale-[0.99] transition cursor-pointer">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-h3 text-neutral100">20:30</span>
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-neutral400">Вечірнє тренування</span>
+            </div>
+            <h3 class="text-body font-semibold text-neutral100 mb-3">Техніка та тактика</h3>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5 text-caption text-neutral400">
+                <svg class="w-4 h-4 text-primary500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6-5.3-6-10a6 6 0 1112 0c0 4.7-6 10-6 10z"/>
+                  <circle cx="12" cy="11" r="2"/>
+                </svg>
+                <span>Спорткомплекс</span>
+              </div>
+              <button class="btn-primary px-4 py-2 rounded-xl text-caption font-semibold flex items-center gap-1">
+                <span>✓ Буду</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Порожній стан (Empty State) -->
+        <div id="schedule-empty" class="hidden bg-secondary800 rounded-2xl p-6 text-center my-4 border border-[#343840]">
+          <div class="w-12 h-12 rounded-2xl bg-neutral900 text-primary500 flex items-center justify-center mx-auto mb-3">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18"/>
+            </svg>
+          </div>
+          <h3 class="text-body font-semibold text-neutral100">День відновлення</h3>
+          <p class="text-caption text-neutral400 mt-1 mb-4">На вибрану дату командних тренувань немає. Відпочивай перед наступною грою!</p>
+          <button onclick="selectDay(19, 'Понеділок, 19 жовтня', true)" class="btn-primary px-4 py-2.5 rounded-xl text-caption font-semibold">
+            Повернутися до Пн 19
+          </button>
+        </div>
+      </section>
+
+      <!-- 3. ЕКРАН ДЕТАЛЕЙ ТРЕНУВАННЯ (TRAINING DETAILS) -->
+      <section id="screen-details" class="screen screen-hidden-right px-4 pt-5 pb-8 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center gap-3 mb-5">
+            <button onclick="navigateBackToSchedule()" class="w-10 h-10 rounded-xl bg-secondary800 flex items-center justify-center text-neutral100 active:scale-95 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+              </svg>
+            </button>
+            <span class="text-body font-medium text-neutral100">Тренування</span>
+          </div>
+
+          <p class="text-caption font-semibold text-primary500 uppercase tracking-wider">Понеділок, 19 жовтня</p>
+          <h1 id="details-title" class="text-h2 text-neutral100 mt-1">Силова підготовка</h1>
+          <div class="flex items-center gap-2 text-body-s text-neutral100 mt-2 mb-5">
+            <svg class="w-4 h-4 text-primary500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 2"/>
+            </svg>
+            <span id="details-time">19:00 - 20:30</span>
+          </div>
+
+          <div class="bg-secondary800 rounded-2xl p-4 space-y-3.5 mb-5">
+            <div class="flex items-start gap-3 pb-3 border-b border-[#2E323B]">
+              <svg class="w-5 h-5 text-primary500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-6-5.3-6-10a6 6 0 1112 0c0 4.7-6 10-6 10z"/>
+                <circle cx="12" cy="11" r="2"/>
+              </svg>
+              <div>
+                <p class="text-caption text-neutral400">Місце</p>
+                <p class="text-body-s font-semibold text-neutral100">Спорткомплекс</p>
+                <p id="details-room" class="text-caption text-neutral400">Зал силової підготовки</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3 pb-3 border-b border-[#2E323B]">
+              <svg class="w-5 h-5 text-primary500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c1.5-4 14.5-4 16 0"/>
+              </svg>
+              <div>
+                <p class="text-caption text-neutral400">Тренер</p>
+                <p class="text-body-s font-semibold text-neutral100">Андрій Коваль</p>
+              </div>
+            </div>
+
+            <div class="flex items-start justify-between">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-primary500 mt-0.5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <circle cx="9" cy="8" r="3.5"/><path stroke-linecap="round" d="M2.5 19c1.2-3.2 11.8-3.2 13 0"/>
+                  <circle cx="17" cy="9" r="2.5"/><path stroke-linecap="round" d="M15.5 19c.8-2.2 5.2-2.2 6 0"/>
+                </svg>
+                <div>
+                  <p class="text-caption text-neutral400">Учасники</p>
+                  <p class="text-body-s font-semibold text-neutral100"><span id="participants-count">14</span> із 18 гравців</p>
+                </div>
+              </div>
+              <span id="attendance-pill" class="px-2.5 py-1 rounded-lg bg-neutral900 text-caption text-neutral400">Очікує відповіді</span>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <h3 class="text-caption font-semibold text-neutral100 mb-1">До тренування</h3>
+            <p class="text-caption text-neutral400 leading-relaxed">
+              Візьми воду та змінне взуття. Зустрічаємося за 10 хвилин до початку.
+            </p>
+          </div>
+
+          <!-- Поле вводу причини відсутності (Default / Focus / Error) -->
+          <div id="absence-form" class="hidden bg-secondary800 border border-[#343840] rounded-2xl p-3.5 mb-4">
+            <label for="absence-reason" class="block text-caption font-medium text-neutral100 mb-1.5">Причина відсутності</label>
+            <input
+              id="absence-reason"
+              type="text"
+              placeholder="Вкажіть причину (напр., Травма коліна)..."
+              oninput="clearReasonError()"
+              class="w-full bg-neutral900 border border-[#343840] focus:border-primary500 rounded-xl px-3 py-2.5 text-body-s text-neutral100 placeholder-neutral400 focus:outline-none transition"
+            />
+            <p id="absence-error" class="hidden text-caption text-error mt-1.5">⚠ Мінімум 5 символів (опишіть причину для тренера)</p>
+            <div class="flex items-center justify-end gap-3 mt-3">
+              <button onclick="toggleAbsenceForm(false)" class="text-caption text-neutral400 px-2 py-1">Закрити</button>
+              <button onclick="submitAbsenceReason()" class="px-3.5 py-2 rounded-lg bg-error text-neutral100 text-caption font-semibold active:scale-95 transition">
+                Відправити причину
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button id="btn-confirm-attendance" onclick="confirmAttendance()" class="btn-primary w-full py-4 rounded-xl text-body flex items-center justify-center gap-2">
+            <span id="btn-confirm-text">✓ Буду</span>
+          </button>
+          <button id="btn-decline-attendance" onclick="toggleAbsenceForm(true)" class="w-full py-3 mt-1 text-body-s text-neutral400 active:text-neutral100 transition text-center">
+            Не буду
+          </button>
+        </div>
+      </section>
+
+      <!-- 4. ЕКРАН КОМАНДИ (TEAM ROSTER) -->
+      <section id="screen-team" class="screen screen-hidden-right px-4 pt-5 pb-24">
+        <h1 class="text-h2 text-neutral100 mb-4">Команда</h1>
+
+        <div class="flex items-center gap-2.5 bg-secondary800 border border-[#343840] focus-within:border-primary500 rounded-xl px-3.5 py-3 mb-4 transition">
+          <svg class="w-4 h-4 text-neutral400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M20 20l-3.5-3.5"/>
+          </svg>
+          <input id="team-search" oninput="filterPlayers()" type="text" placeholder="Пошук гравця" class="w-full bg-transparent text-body-s text-neutral100 placeholder-neutral400 focus:outline-none" />
+        </div>
+
+        <div class="bg-secondary800 rounded-2xl p-3.5 flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-neutral900 text-primary500 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8m-4-4v4m-5-9a5 5 0 0010 0V4H7v8zM4 4h3v4a3 3 0 01-3-3V4zm16 0h-3v4a3 3 0 003-3V4z"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-body-s font-semibold text-neutral100">ГК Хмельницький</p>
+            <p class="text-caption text-neutral400">Сезон 2026 / 2027</p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="text-body-s font-semibold text-neutral100">Гравці</span>
+          <span id="team-count" class="text-caption text-neutral400">4 гравці</span>
+        </div>
+
+        <div id="players-list" class="divide-y divide-[#23262C]">
+          <div data-name="олександр розігруючий" onclick="showToast('Олександр · №7 · Готовий до гри', 'info')" class="py-3.5 flex items-center justify-between cursor-pointer active:bg-secondary800/60 px-2 rounded-xl transition">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-primary500 text-neutral900 font-bold text-body-s flex items-center justify-center">ОА</div>
+              <div>
+                <p class="text-body-s font-semibold text-neutral100">Олександр</p>
+                <p class="text-caption text-neutral400">Розігруючий</p>
+              </div>
+            </div>
+            <span class="text-neutral400">›</span>
+          </div>
+
+          <div data-name="максим лівий півсередній" onclick="showToast('Максим · №11 · Основний склад', 'info')" class="py-3.5 flex items-center justify-between cursor-pointer active:bg-secondary800/60 px-2 rounded-xl transition">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-secondary800 border border-[#343840] text-neutral100 font-semibold text-body-s flex items-center justify-center">МК</div>
+              <div>
+                <p class="text-body-s font-semibold text-neutral100">Максим</p>
+                <p class="text-caption text-neutral400">Лівий півсередній</p>
+              </div>
+            </div>
+            <span class="text-neutral400">›</span>
+          </div>
+
+          <div data-name="артем лінійний" onclick="showToast('Артем · №19 · Основний склад', 'info')" class="py-3.5 flex items-center justify-between cursor-pointer active:bg-secondary800/60 px-2 rounded-xl transition">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-secondary800 border border-[#343840] text-neutral100 font-semibold text-body-s flex items-center justify-center">АК</div>
+              <div>
+                <p class="text-body-s font-semibold text-neutral100">Артем</p>
+                <p class="text-caption text-neutral400">Лінійний</p>
+              </div>
+            </div>
+            <span class="text-neutral400">›</span>
+          </div>
+
+          <div data-name="дмитро воротар" onclick="showToast('Дмитро · №1 · Воротар', 'info')" class="py-3.5 flex items-center justify-between cursor-pointer active:bg-secondary800/60 px-2 rounded-xl transition">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-secondary800 border border-[#343840] text-neutral100 font-semibold text-body-s flex items-center justify-center">ДВ</div>
+              <div>
+                <p class="text-body-s font-semibold text-neutral100">Дмитро</p>
+                <p class="text-caption text-neutral400">Воротар</p>
+              </div>
+            </div>
+            <span class="text-neutral400">›</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. ЕКРАН ПРОФІЛЮ (PROFILE) -->
+      <section id="screen-profile" class="screen screen-hidden-right px-4 pt-5 pb-24">
+        <h1 class="text-h2 text-neutral100 mb-5">Профіль</h1>
+
+        <div class="flex flex-col items-center text-center mb-6">
+          <div class="w-20 h-20 rounded-full bg-primary500 text-neutral900 text-h2 flex items-center justify-center mb-3 shadow-lg shadow-primary500/20">
+            ОА
+          </div>
+          <h2 class="text-h3 text-neutral100">Олександр</h2>
+          <p class="text-caption text-neutral400 mt-0.5">ГК Хмельницький · Розігруючий</p>
+        </div>
+
+        <div class="flex items-center justify-between mb-2.5">
+          <span class="text-body-s font-semibold text-neutral100">Моя статистика</span>
+          <span class="text-caption text-neutral400">Цього місяця</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          <div class="bg-secondary800 rounded-2xl p-4">
+            <p class="text-caption text-neutral400">Відвідано:</p>
+            <p id="stat-attended" class="text-h2 text-primary500 mt-1">12</p>
+          </div>
+          <div class="bg-secondary800 rounded-2xl p-4">
+            <p class="text-caption text-neutral400">Пропущено:</p>
+            <p id="stat-missed" class="text-h2 text-neutral100 mt-1">2</p>
+          </div>
+        </div>
+
+        <div class="bg-secondary800 rounded-2xl divide-y divide-[#2E323B] overflow-hidden">
+          <button onclick="showToast('Push-сповіщення за 1 год до тренування увімкнено', 'info')" class="w-full px-4 py-4 flex items-center justify-between text-body-s text-neutral100 active:bg-[#2A2E36] transition">
+            <span class="flex items-center gap-3">
+              <svg class="w-5 h-5 text-neutral400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 00-5-5.9V4a1 1 0 10-2 0v1.1A6 6 0 006 11v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0h6z"/>
+              </svg>
+              Сповіщення
+            </span>
+            <span class="text-neutral400">›</span>
+          </button>
+
+          <button onclick="showToast('Темна тема активна за замовчуванням', 'info')" class="w-full px-4 py-4 flex items-center justify-between text-body-s text-neutral100 active:bg-[#2A2E36] transition">
+            <span class="flex items-center gap-3">
+              <svg class="w-5 h-5 text-neutral400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+              </svg>
+              Налаштування
+            </span>
+            <span class="text-neutral400">›</span>
+          </button>
+
+          <button onclick="logout()" class="w-full px-4 py-4 flex items-center gap-3 text-body-s font-medium text-error active:bg-[#2A2E36] transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+            </svg>
+            Вийти з акаунту
+          </button>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Нативний нижній Tab Bar з урахуванням Safe Area смартфона -->
+    <nav id="bottom-nav" class="hidden bg-neutral900/95 backdrop-blur border-t border-[#23262C] px-6 pt-2.5 pb-4 items-center justify-around z-20 shrink-0">
+      <button onclick="switchTab('schedule')" id="tab-schedule" class="flex flex-col items-center gap-1 text-primary500 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18"/>
+        </svg>
+        <span class="text-[11px] font-medium">Розклад</span>
+      </button>
+
+      <button onclick="switchTab('team')" id="tab-team" class="flex flex-col items-center gap-1 text-neutral400 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="9" cy="8" r="3.5"/><path stroke-linecap="round" d="M2.5 19c1.2-3.2 11.8-3.2 13 0"/>
+          <circle cx="17" cy="9" r="2.5"/><path stroke-linecap="round" d="M15.5 19c.8-2.2 5.2-2.2 6 0"/>
+        </svg>
+        <span class="text-[11px] font-medium">Команда</span>
+      </button>
+
+      <button onclick="switchTab('profile')" id="tab-profile" class="flex flex-col items-center gap-1 text-neutral400 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4 20c1.5-4 14.5-4 16 0"/>
+        </svg>
+        <span class="text-[11px] font-medium">Профіль</span>
+      </button>
+    </nav>
+
+  </main>
+
+  <script>
+    let currentScreen = 'login';
+    let isConfirmed = false;
+    let toastTimer = null;
+    const screens = ['login', 'schedule', 'details', 'team', 'profile'];
+
+    function haptic(ms = 12) {
+      if (navigator.vibrate) navigator.vibrate(ms);
+    }
+
+    function showScreen(target, direction = 'forward') {
+      haptic(10);
+      screens.forEach(name => {
+        const el = document.getElementById(`screen-${name}`);
+        if (name === target) {
+          el.className = 'screen screen-active px-4 ' + (name === 'login' ? 'pt-8 pb-8 flex flex-col justify-between' : name === 'details' ? 'pt-5 pb-8 flex flex-col justify-between' : 'pt-5 pb-24');
+        } else {
+          const hideClass = direction === 'forward' ? 'screen-hidden-left' : 'screen-hidden-right';
+          el.className = `screen ${hideClass} px-4 pt-5 pb-24`;
+        }
+      });
+
+      const nav = document.getElementById('bottom-nav');
+      if (['schedule', 'team', 'profile'].includes(target)) {
+        nav.classList.remove('hidden');
+        nav.classList.add('flex');
+        updateTabHighlight(target);
+      } else {
+        nav.classList.add('hidden');
+        nav.classList.remove('flex');
+      }
+      currentScreen = target;
+    }
+
+    function updateTabHighlight(activeTab) {
+      ['schedule', 'team', 'profile'].forEach(tab => {
+        const btn = document.getElementById(`tab-${tab}`);
+        btn.className = tab === activeTab
+          ? 'flex flex-col items-center gap-1 text-primary500 transition'
+          : 'flex flex-col items-center gap-1 text-neutral400 transition';
+      });
+    }
+
+    function switchTab(tabName) {
+      showScreen(tabName, 'forward');
+    }
+
+    function handleLogin() {
+      const emailInput = document.getElementById('login-email');
+      const emailBox = document.getElementById('login-email-box');
+      const errorText = document.getElementById('login-error');
+      const btnText = document.getElementById('btn-login-text');
+
+      if (!emailInput.value.includes('@')) {
+        haptic([30, 40, 30]);
+        emailBox.classList.add('border-error', 'animate-shake');
+        errorText.classList.remove('hidden');
+        setTimeout(() => emailBox.classList.remove('animate-shake'), 300);
+        return;
+      }
+
+      emailBox.classList.remove('border-error');
+      errorText.classList.add('hidden');
+
+      btnText.innerHTML = `
+        <svg class="w-5 h-5 animate-spin inline mr-1.5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+        </svg>
+        Входимо...
+      `;
+
+      setTimeout(() => {
+        btnText.textContent = 'Увійти';
+        showScreen('schedule', 'forward');
+        showToast('Вітаємо в TeamSync, Олександре!', 'success');
+      }, 400);
+    }
+
+    function selectDay(day, title, hasEvents) {
+      haptic(8);
+      document.querySelectorAll('.day-chip').forEach(chip => {
+        const isSelected = Number(chip.dataset.day) === day;
+        chip.className = isSelected
+          ? 'day-chip py-2.5 rounded-xl bg-primary500 text-neutral900 flex flex-col items-center justify-center font-semibold transition'
+          : 'day-chip py-2.5 rounded-xl bg-secondary800 text-neutral100 flex flex-col items-center justify-center transition';
+      });
+
+      document.getElementById('schedule-day-title').textContent = title;
+      const cards = document.getElementById('schedule-cards');
+      const empty = document.getElementById('schedule-empty');
+      const count = document.getElementById('schedule-events-count');
+
+      if (hasEvents) {
+        cards.classList.remove('hidden');
+        empty.classList.add('hidden');
+        count.textContent = '2 події';
+      } else {
+        cards.classList.add('hidden');
+        empty.classList.remove('hidden');
+        count.textContent = 'Немає подій';
+      }
+    }
+
+    function openTrainingDetails(title, time, room) {
+      document.getElementById('details-title').textContent = title;
+      document.getElementById('details-time').textContent = time;
+      document.getElementById('details-room').textContent = room;
+      showScreen('details', 'forward');
+    }
+
+    function navigateBackToSchedule() {
+      showScreen('schedule', 'back');
+    }
+
+    function confirmAttendance() {
+      if (isConfirmed) return;
+      haptic(20);
+      const btn = document.getElementById('btn-confirm-attendance');
+      const btnText = document.getElementById('btn-confirm-text');
+
+      toggleAbsenceForm(false);
+
+      btnText.innerHTML = `
+        <svg class="w-5 h-5 animate-spin inline mr-1.5" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z"></path>
+        </svg>
+        Обробка...
+      `;
+
+      setTimeout(() => {
+        isConfirmed = true;
+        btn.className = 'w-full py-4 rounded-xl text-body font-semibold flex items-center justify-center gap-2 bg-success text-neutral900 transition';
+        btnText.textContent = '✓ Ви записані на тренування';
+
+        document.getElementById('participants-count').textContent = '15';
+        const pill = document.getElementById('attendance-pill');
+        pill.textContent = 'Підтверджено';
+        pill.className = 'px-2.5 py-1 rounded-lg bg-success/20 text-caption text-success font-semibold';
+
+        document.getElementById('card-1-btn').innerHTML = '<span>✓ Записаний</span>';
+        document.getElementById('card-1-btn').className = 'px-4 py-2 rounded-xl text-caption font-semibold bg-success text-neutral900';
+        document.getElementById('stat-attended').textContent = '13';
+
+        showToast('Присутність підтверджено', 'success', true);
+      }, 450);
+    }
+
+    function undoAttendance() {
+      haptic(15);
+      isConfirmed = false;
+      const btn = document.getElementById('btn-confirm-attendance');
+      const btnText = document.getElementById('btn-confirm-text');
+
+      btn.className = 'btn-primary w-full py-4 rounded-xl text-body flex items-center justify-center gap-2';
+      btnText.textContent = '✓ Буду';
+
+      document.getElementById('participants-count').textContent = '14';
+      const pill = document.getElementById('attendance-pill');
+      pill.textContent = 'Очікує відповіді';
+      pill.className = 'px-2.5 py-1 rounded-lg bg-neutral900 text-caption text-neutral400';
+
+      document.getElementById('card-1-btn').innerHTML = '<span>✓ Буду</span>';
+      document.getElementById('card-1-btn').className = 'btn-primary px-4 py-2 rounded-xl text-caption font-semibold flex items-center gap-1';
+      document.getElementById('stat-attended').textContent = '12';
+
+      showToast('Запис скасовано', 'info', false);
+    }
+
+    function toggleAbsenceForm(show) {
+      const form = document.getElementById('absence-form');
+      if (show) {
+        form.classList.remove('hidden');
+        document.getElementById('absence-reason').focus();
+      } else {
+        form.classList.add('hidden');
+        clearReasonError();
+      }
+    }
+
+    function clearReasonError() {
+      const input = document.getElementById('absence-reason');
+      const err = document.getElementById('absence-error');
+      input.classList.remove('border-error');
+      err.classList.add('hidden');
+    }
+
+    function submitAbsenceReason() {
+      const input = document.getElementById('absence-reason');
+      const err = document.getElementById('absence-error');
+      const val = input.value.trim();
+
+      if (val.length < 5) {
+        haptic([30, 40, 30]);
+        input.classList.add('border-error', 'animate-shake');
+        err.classList.remove('hidden');
+        setTimeout(() => input.classList.remove('animate-shake'), 300);
+        return;
+      }
+
+      isConfirmed = false;
+      toggleAbsenceForm(false);
+
+      const pill = document.getElementById('attendance-pill');
+      pill.textContent = 'Пропуск: ' + val;
+      pill.className = 'px-2.5 py-1 rounded-lg bg-error/20 text-caption text-error font-semibold';
+
+      const btn = document.getElementById('btn-confirm-attendance');
+      const btnText = document.getElementById('btn-confirm-text');
+      btn.className = 'btn-primary w-full py-4 rounded-xl text-body flex items-center justify-center gap-2';
+      btnText.textContent = 'Змінити на «Буду»';
+
+      document.getElementById('stat-missed').textContent = '3';
+      showToast('Тренера повідомлено про відсутність', 'error', false);
+    }
+
+    function filterPlayers() {
+      const q = document.getElementById('team-search').value.toLowerCase().trim();
+      const rows = document.querySelectorAll('#players-list > div');
+      let visible = 0;
+      rows.forEach(row => {
+        if (row.dataset.name.includes(q)) {
+          row.classList.remove('hidden');
+          visible++;
+        } else {
+          row.classList.add('hidden');
+        }
+      });
+      document.getElementById('team-count').textContent = `${visible} гравці`;
+    }
+
+    function logout() {
+      showScreen('login', 'back');
+      showToast('Ви вийшли з акаунту', 'info');
+    }
+
+    function showToast(message, type = 'success', withUndo = false) {
+      const toast = document.getElementById('toast');
+      const dot = document.getElementById('toast-dot');
+      const text = document.getElementById('toast-text');
+      const action = document.getElementById('toast-action');
+
+      text.textContent = message;
+      dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + (type === 'error' ? 'bg-error' : type === 'info' ? 'bg-primary500' : 'bg-success');
+
+      if (withUndo) {
+        action.classList.remove('hidden');
+      } else {
+        action.classList.add('hidden');
+      }
+
+      toast.classList.remove('-translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100', 'pointer-events-auto');
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('-translate-y-24', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100', 'pointer-events-auto');
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
